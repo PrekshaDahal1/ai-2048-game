@@ -1,60 +1,40 @@
 import tkinter as tk
 import random
 
-GRID_SIZE = 4
-CELL_SIZE = 100
-PADDING = 10
-FONT = ("Verdana", 24, "bold")
-BACKGROUND_COLOR = "#92877d"
-EMPTY_CELL_COLOR = "#9e948a"
-TILE_COLORS = {
-    0: "#9e948a",
-    2: "#eee4da",
-    4: "#ede0c8",
-    8: "#f2b179",
-    16: "#f59563",
-    32: "#f67c5f",
-    64: "#f65e3b",
-    128: "#edcf72",
-    256: "#edcc61",
-    512: "#edc850",
-    1024: "#edc53f",
-    2048: "#edc22e",
-}
+from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
 
-class Game2048GUI:
+class Game2048:
     def __init__(self, root):
         self.root = root
         self.root.title("2048 Game")
-        self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
-        self.canvas = tk.Canvas(root, bg=BACKGROUND_COLOR,
-                                width=GRID_SIZE * CELL_SIZE,
-                                height=GRID_SIZE * CELL_SIZE)
+        self.canvas = tk.Canvas(root, width=GRID_SIZE * CELL_SIZE,
+                                height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
         self.canvas.pack()
-        self.add_new_tile()
-        self.add_new_tile()
+
+        self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+        self.add_random_tile()
+        self.add_random_tile()
         self.draw_board()
+
         self.root.bind("<Key>", self.key_handler)
 
     def draw_board(self):
         self.canvas.delete("all")
         for i in range(GRID_SIZE):
             for j in range(GRID_SIZE):
-                self.draw_tile(i, j, self.board[i][j])
+                value = self.board[i][j]
+                color = TILE_COLORS.get(value, "#3c3a32")
+                x0 = j * CELL_SIZE + PADDING
+                y0 = i * CELL_SIZE + PADDING
+                x1 = x0 + CELL_SIZE - 2 * PADDING
+                y1 = y0 + CELL_SIZE - 2 * PADDING
+                self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
 
-    def draw_tile(self, i, j, value):
-        x0 = j * CELL_SIZE + PADDING
-        y0 = i * CELL_SIZE + PADDING
-        x1 = x0 + CELL_SIZE - 2 * PADDING
-        y1 = y0 + CELL_SIZE - 2 * PADDING
+                if value != 0:
+                    self.canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2,
+                                            text=str(value), font=FONT, fill="#776e65")
 
-        color = TILE_COLORS.get(value, "#3c3a32")
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
-        if value != 0:
-            self.canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2,
-                                    text=str(value), font=FONT, fill="#776e65")
-
-    def add_new_tile(self):
+    def add_random_tile(self):
         empty = [(i, j) for i in range(GRID_SIZE) for j in range(GRID_SIZE) if self.board[i][j] == 0]
         if empty:
             i, j = random.choice(empty)
@@ -63,64 +43,68 @@ class Game2048GUI:
     def key_handler(self, event):
         key = event.keysym
         moved = False
+
         if key == "Up":
-            moved = self.move_up()
+            moved = self.move_vertical(up=True)
         elif key == "Down":
-            moved = self.move_down()
+            moved = self.move_vertical(up=False)
         elif key == "Left":
-            moved = self.move_left()
+            moved = self.move_horizontal(left=True)
         elif key == "Right":
-            moved = self.move_right()
+            moved = self.move_horizontal(left=False)
 
         if moved:
-            self.add_new_tile()
+            self.add_random_tile()
             self.draw_board()
             if not self.can_move():
                 self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
                                         text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
 
-    # Movement methods (same logic as before)
     def compress(self, row):
-        new_row = [i for i in row if i != 0]
+        new_row = [num for num in row if num != 0]
         new_row += [0] * (GRID_SIZE - len(new_row))
         return new_row
 
     def merge(self, row):
         for i in range(GRID_SIZE - 1):
-            if row[i] == row[i+1] and row[i] != 0:
+            if row[i] != 0 and row[i] == row[i+1]:
                 row[i] *= 2
                 row[i+1] = 0
         return row
 
-    def move_left(self):
+    def move_horizontal(self, left=True):
         moved = False
-        new_board = []
-        for row in self.board:
-            compressed = self.compress(row)
-            merged = self.merge(compressed)
-            final = self.compress(merged)
-            if final != row:
+        for i in range(GRID_SIZE):
+            row = self.board[i]
+            if not left:
+                row = row[::-1]
+            original = list(row)
+            row = self.compress(row)
+            row = self.merge(row)
+            row = self.compress(row)
+            if not left:
+                row = row[::-1]
+            if row != self.board[i]:
                 moved = True
-            new_board.append(final)
-        self.board = new_board
+            self.board[i] = row
         return moved
 
-    def move_right(self):
-        self.board = [row[::-1] for row in self.board]
-        moved = self.move_left()
-        self.board = [row[::-1] for row in self.board]
-        return moved
-
-    def move_up(self):
-        self.board = list(map(list, zip(*self.board)))
-        moved = self.move_left()
-        self.board = list(map(list, zip(*self.board)))
-        return moved
-
-    def move_down(self):
-        self.board = list(map(list, zip(*self.board)))
-        moved = self.move_right()
-        self.board = list(map(list, zip(*self.board)))
+    def move_vertical(self, up=True):
+        moved = False
+        for j in range(GRID_SIZE):
+            col = [self.board[i][j] for i in range(GRID_SIZE)]
+            if not up:
+                col = col[::-1]
+            original = list(col)
+            col = self.compress(col)
+            col = self.merge(col)
+            col = self.compress(col)
+            if not up:
+                col = col[::-1]
+            for i in range(GRID_SIZE):
+                if self.board[i][j] != col[i]:
+                    moved = True
+                self.board[i][j] = col[i]
         return moved
 
     def can_move(self):
@@ -134,7 +118,8 @@ class Game2048GUI:
                     return True
         return False
 
+
 if __name__ == "__main__":
     root = tk.Tk()
-    game = Game2048GUI(root)
+    game = Game2048(root)
     root.mainloop()
