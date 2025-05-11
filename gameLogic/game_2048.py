@@ -2,6 +2,41 @@ import tkinter as tk
 import random
 
 from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
+from ai_simulation import Game2048AI 
+
+def get_best_move(self):
+    directions = ['Up', 'Down', 'Left', 'Right']
+    best_score = -float('inf')
+    best_direction = None
+
+    for direction in directions:
+        temp_game = Game2048AI(self.board)  # Use AI class
+        moved = temp_game.move(direction)
+        if moved:
+            score = temp_game.heuristic(temp_game.board)  # call as instance method
+            if score > best_score:
+                best_score = score
+                best_direction = direction
+
+    return best_direction
+
+
+def get_best_move(self):
+    directions = ['Up', 'Down', 'Left', 'Right']
+    best_score = -float('inf')
+    best_direction = None
+
+    for direction in directions:
+        temp_game = Game2048AI(self.board)  # Use AI class
+        moved = temp_game.move(direction)
+        if moved:
+            score = temp_game.heuristic(temp_game.board)  # call as instance method
+            if score > best_score:
+                best_score = score
+                best_direction = direction
+
+    return best_direction
+
 
 
 class Game2048:
@@ -22,7 +57,7 @@ class Game2048:
         self.canvas.pack()
 
         # Create and place the button in the frame
-        btn = tk.Button(self.root, text="AI Move", command=self.ai_move)
+        btn = tk.Button(self.root, text="AI Move", command=self.auto_play)
         btn.pack(pady=20)  # Add some padding between the canvas and the button
 
         # Initialize the game board and add random tiles
@@ -135,21 +170,38 @@ class Game2048:
         return False
 
     def get_best_move(self):
-      directions = ['Up', 'Down', 'Left', 'Right']
-      best_score = -float('inf')
-      best_direction = None
-      
-      for direction in directions:
-        # Create a copy of the board and simulate the move
-        temp_game = Game2048(self.board) 
-        moved = temp_game.move(direction)
-        if moved:
-            score = self.heuristic(temp_game.board)
-            if score > best_score:
-                best_score = score
-                best_direction = direction
+        directions = ['Up', 'Down', 'Left', 'Right']
+        best_score = -float('inf')
+        best_direction = None
 
+        for direction in directions:
+            temp_game = Game2048AI(self.board)  # Use AI class
+            moved = temp_game.move(direction)
+            if moved:
+                score = temp_game.heuristic()  # call as instance method
+                if score > best_score:
+                    best_score = score
+                    best_direction = direction
         return best_direction
+                
+    def auto_play(self):
+        direction = self.get_best_move()
+        if direction:
+            if direction == "Up":
+                self.move_vertical(up=True)
+            elif direction == "Down":
+                self.move_vertical(up=False)
+            elif direction == "Left":
+                self.move_horizontal(left=True)
+            elif direction == "Right":
+                self.move_horizontal(left=False)
+            self.add_random_tile()
+            self.draw_board()
+            if self.can_move():
+                self.root.after(300, self.auto_play)
+            else:
+                self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
+                                    text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
 
 
     def ai_move(self):
@@ -172,7 +224,6 @@ class Game2048:
         if not self.can_move():
             self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
                                     text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
-
 
 if __name__ == "__main__":
     root = tk.Tk()
