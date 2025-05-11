@@ -1,26 +1,22 @@
 import tkinter as tk
 import random
 
-# Grid and UI settings
-GRID_SIZE = 4  # 4x4 grid
-CELL_SIZE = 120
+GRID_SIZE = 4
+CELL_SIZE = 100
 PADDING = 10
 FONT = ("Verdana", 24, "bold")
-BACKGROUND_COLOR = "#ffeaf4"      
-EMPTY_CELL_COLOR = "#fff5fb"      
-
+BACKGROUND_COLOR = "#bbada0"
 TILE_COLORS = {
-    0: "#fff5fb",        # empty
-    2: "#fbc4e7",       # pale pink
-    4: "#ffe0f0",        # soft rose
-    8: "#f9add3",        # pastel pink
-    16: "#f6a0c7",       # light blush
-    32: "#e499b8",       # soft magenta
-    64: "#d891c6",       # lavender rose
-    128: "#e6b4f0",      # lilac
-    256: "#d9a4f5",      # light purple
-    512: "#c38df2",      # orchid
-    1024: "#b38cf2",     # lavender purple
-    2048: "#a377e9",     # violet
-    4096: "#dcb3f0",     # bonus pastel lavender
+    0: "#cdc1b4",
+    2: "#eee4da",
+    4: "#ede0c8",
+    8: "#f2b179",
+    16: "#f59563",
+    32: "#f67c5f",
+    64: "#f65e3b",
+    128: "#edcf72",
+    256: "#edcc61",
+    512: "#edc850",
+    1024: "#edc53f",
+    2048: "#edc22e",
 }

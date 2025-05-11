@@ -3,20 +3,37 @@ import random
 
 from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
 
+
 class Game2048:
     def __init__(self, root):
         self.root = root
         self.root.title("2048 Game")
-        self.canvas = tk.Canvas(root, width=GRID_SIZE * CELL_SIZE,
-                                height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
+
+        # Set the window size based on the canvas size plus some padding
+        self.root.geometry(f"{GRID_SIZE * CELL_SIZE + 100}x{GRID_SIZE * CELL_SIZE + 100}")
+
+        # Create a frame to hold the canvas and the button
+        frame = tk.Frame(self.root)
+        frame.pack()
+
+        # Create and place the canvas
+        self.canvas = tk.Canvas(frame, width=GRID_SIZE * CELL_SIZE,
+                             height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
         self.canvas.pack()
 
+        # Create and place the button in the frame
+        btn = tk.Button(self.root, text="AI Move", command=self.ai_move)
+        btn.pack(pady=20)  # Add some padding between the canvas and the button
+
+        # Initialize the game board and add random tiles
         self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
         self.add_random_tile()
         self.add_random_tile()
         self.draw_board()
 
+        # Bind key events for user input
         self.root.bind("<Key>", self.key_handler)
+
 
     def draw_board(self):
         self.canvas.delete("all")
@@ -29,7 +46,6 @@ class Game2048:
                 x1 = x0 + CELL_SIZE - 2 * PADDING
                 y1 = y0 + CELL_SIZE - 2 * PADDING
                 self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
-
                 if value != 0:
                     self.canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2,
                                             text=str(value), font=FONT, fill="#776e65")
@@ -60,6 +76,41 @@ class Game2048:
                 self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
                                         text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
 
+    def move_horizontal(self, left=True):
+        moved = False
+        for i in range(GRID_SIZE):
+            row = self.board[i]
+            original = list(row)
+            if not left:
+                row = row[::-1]
+            row = self.compress(row)
+            row = self.merge(row)
+            row = self.compress(row)
+            if not left:
+                row = row[::-1]
+            if row != original:
+                moved = True
+            self.board[i] = row
+        return moved
+
+    def move_vertical(self, up=True):
+        moved = False
+        for j in range(GRID_SIZE):
+            col = [self.board[i][j] for i in range(GRID_SIZE)]
+            original = list(col)
+            if not up:
+                col = col[::-1]
+            col = self.compress(col)
+            col = self.merge(col)
+            col = self.compress(col)
+            if not up:
+                col = col[::-1]
+            for i in range(GRID_SIZE):
+                if self.board[i][j] != col[i]:
+                    moved = True
+                self.board[i][j] = col[i]
+        return moved
+
     def compress(self, row):
         new_row = [num for num in row if num != 0]
         new_row += [0] * (GRID_SIZE - len(new_row))
@@ -72,41 +123,6 @@ class Game2048:
                 row[i+1] = 0
         return row
 
-    def move_horizontal(self, left=True):
-        moved = False
-        for i in range(GRID_SIZE):
-            row = self.board[i]
-            if not left:
-                row = row[::-1]
-            original = list(row)
-            row = self.compress(row)
-            row = self.merge(row)
-            row = self.compress(row)
-            if not left:
-                row = row[::-1]
-            if row != self.board[i]:
-                moved = True
-            self.board[i] = row
-        return moved
-
-    def move_vertical(self, up=True):
-        moved = False
-        for j in range(GRID_SIZE):
-            col = [self.board[i][j] for i in range(GRID_SIZE)]
-            if not up:
-                col = col[::-1]
-            original = list(col)
-            col = self.compress(col)
-            col = self.merge(col)
-            col = self.compress(col)
-            if not up:
-                col = col[::-1]
-            for i in range(GRID_SIZE):
-                if self.board[i][j] != col[i]:
-                    moved = True
-                self.board[i][j] = col[i]
-        return moved
-
     def can_move(self):
         for i in range(GRID_SIZE):
             for j in range(GRID_SIZE):
@@ -117,6 +133,45 @@ class Game2048:
                 if i < GRID_SIZE - 1 and self.board[i][j] == self.board[i+1][j]:
                     return True
         return False
+
+    def get_best_move(self):
+      directions = ['Up', 'Down', 'Left', 'Right']
+      best_score = -float('inf')
+      best_direction = None
+      
+      for direction in directions:
+        # Create a copy of the board and simulate the move
+        temp_game = Game2048(self.board) 
+        moved = temp_game.move(direction)
+        if moved:
+            score = self.heuristic(temp_game.board)
+            if score > best_score:
+                best_score = score
+                best_direction = direction
+
+        return best_direction
+
+
+    def ai_move(self):
+        direction = self.get_best_move()
+        if direction:            # Perform the AI's move using the direction determined by the AI
+            if direction == "Up":
+                self.move_vertical(up=True)
+            elif direction == "Down":
+                self.move_vertical(up=False)
+            elif direction == "Left":
+                self.move_horizontal(left=True)
+            elif direction == "Right":
+                self.move_horizontal(left=False)
+
+        # Add a new random tile and redraw the board
+            self.add_random_tile()
+            self.draw_board()
+
+        # Check if the game is over
+        if not self.can_move():
+            self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
+                                    text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
 
 
 if __name__ == "__main__":
