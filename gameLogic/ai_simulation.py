@@ -67,5 +67,4 @@ class Game2048AI:
     def heuristic(self):
         empty_cells = sum(row.count(0) for row in self.board)
         max_tile    = max(max(row) for row in self.board)
-        return empty_cells + 0.1 * max_tile
-
+        return empty_cells + 0.1 * max_tile  

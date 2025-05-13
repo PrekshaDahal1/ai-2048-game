@@ -1,74 +1,40 @@
 import tkinter as tk
 import random
+from collections import Counter
 
 from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
-from ai_simulation import Game2048AI 
-
-def get_best_move(self):
-    directions = ['Up', 'Down', 'Left', 'Right']
-    best_score = -float('inf')
-    best_direction = None
-
-    for direction in directions:
-        temp_game = Game2048AI(self.board)  # Use AI class
-        moved = temp_game.move(direction)
-        if moved:
-            score = temp_game.heuristic(temp_game.board)  # call as instance method
-            if score > best_score:
-                best_score = score
-                best_direction = direction
-
-    return best_direction
-
-
-def get_best_move(self):
-    directions = ['Up', 'Down', 'Left', 'Right']
-    best_score = -float('inf')
-    best_direction = None
-
-    for direction in directions:
-        temp_game = Game2048AI(self.board)  # Use AI class
-        moved = temp_game.move(direction)
-        if moved:
-            score = temp_game.heuristic(temp_game.board)  # call as instance method
-            if score > best_score:
-                best_score = score
-                best_direction = direction
-
-    return best_direction
-
-
+from ai_simulation import Game2048AI
 
 class Game2048:
     def __init__(self, root):
         self.root = root
         self.root.title("2048 Game")
-
-        # Set the window size based on the canvas size plus some padding
         self.root.geometry(f"{GRID_SIZE * CELL_SIZE + 100}x{GRID_SIZE * CELL_SIZE + 100}")
 
-        # Create a frame to hold the canvas and the button
         frame = tk.Frame(self.root)
         frame.pack()
 
-        # Create and place the canvas
         self.canvas = tk.Canvas(frame, width=GRID_SIZE * CELL_SIZE,
-                             height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
+                                height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
         self.canvas.pack()
 
-        # Create and place the button in the frame
         btn = tk.Button(self.root, text="AI Move", command=self.auto_play)
-        btn.pack(pady=20)  # Add some padding between the canvas and the button
+        btn.pack(pady=10)
 
-        # Initialize the game board and add random tiles
+        eval_btn = tk.Button(self.root, text="Run 50 AI Games", command=self.start_auto_evaluate)
+        eval_btn.pack(pady=10)
+
         self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
         self.add_random_tile()
         self.add_random_tile()
         self.draw_board()
 
-        # Bind key events for user input
         self.root.bind("<Key>", self.key_handler)
 
+        self.auto_runs = 0
+        self.max_auto_runs = 50
+        self.auto_scores = []
+        self.auto_max_tiles = []
 
     def draw_board(self):
         self.canvas.delete("all")
@@ -108,8 +74,7 @@ class Game2048:
             self.add_random_tile()
             self.draw_board()
             if not self.can_move():
-                self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
-                                        text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
+                self.show_game_over()
 
     def move_horizontal(self, left=True):
         moved = False
@@ -175,15 +140,15 @@ class Game2048:
         best_direction = None
 
         for direction in directions:
-            temp_game = Game2048AI(self.board)  # Use AI class
+            temp_game = Game2048AI(self.board)
             moved = temp_game.move(direction)
             if moved:
-                score = temp_game.heuristic()  # call as instance method
+                score = temp_game.heuristic()
                 if score > best_score:
                     best_score = score
                     best_direction = direction
         return best_direction
-                
+
     def auto_play(self):
         direction = self.get_best_move()
         if direction:
@@ -200,13 +165,42 @@ class Game2048:
             if self.can_move():
                 self.root.after(300, self.auto_play)
             else:
-                self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
-                                    text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
+                self.show_game_over()
 
+    def show_game_over(self):
+        self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
+                                text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
 
-    def ai_move(self):
+    def reset_game(self):
+        self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+        self.add_random_tile()
+        self.add_random_tile()
+        self.draw_board()
+
+    def start_auto_evaluate(self):
+        self.auto_runs = 0
+        self.auto_scores = []
+        self.auto_max_tiles = []
+        self.run_single_game()
+
+    def run_single_game(self):
+        if self.auto_runs >= self.max_auto_runs:
+            self.show_auto_results()
+            return
+
+        self.reset_game()
+        self.root.after(500, self.auto_play_once)
+
+    def auto_play_once(self):
+        if not self.can_move():
+            self.auto_scores.append(sum(map(sum, self.board)))
+            self.auto_max_tiles.append(max(map(max, self.board)))
+            self.auto_runs += 1
+            self.root.after(300, self.run_single_game)
+            return
+
         direction = self.get_best_move()
-        if direction:            # Perform the AI's move using the direction determined by the AI
+        if direction:
             if direction == "Up":
                 self.move_vertical(up=True)
             elif direction == "Down":
@@ -215,17 +209,27 @@ class Game2048:
                 self.move_horizontal(left=True)
             elif direction == "Right":
                 self.move_horizontal(left=False)
-
-        # Add a new random tile and redraw the board
             self.add_random_tile()
             self.draw_board()
+            self.root.after(100, self.auto_play_once)
 
-        # Check if the game is over
-        if not self.can_move():
-            self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
-                                    text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
+    def show_auto_results(self):
+        avg_score = sum(self.auto_scores) / len(self.auto_scores)
+        max_tile_counts = Counter(self.auto_max_tiles)
+        result_text = f"Average Score: {avg_score:.2f}\n"
+        for tile in sorted(max_tile_counts):
+            percent = 100 * max_tile_counts[tile] / self.max_auto_runs
+            result_text += f"Reached {tile}: {percent:.2f}% of the time\n"
+
+        result_win = tk.Toplevel(self.root)
+        result_win.title("AI Evaluation Results")
+        tk.Label(result_win, text=result_text, font=("Verdana", 14), justify="left").pack(padx=20, pady=20)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    game = Game2048(root)
-    root.mainloop()
+    import sys
+    if "--evaluate" in sys.argv:
+        print("Visual evaluation not available in CLI mode. Launch the GUI to see it.")
+    else:
+        root = tk.Tk()
+        game = Game2048(root)
+        root.mainloop()
