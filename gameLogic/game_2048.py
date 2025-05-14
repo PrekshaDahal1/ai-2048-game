@@ -1,10 +1,11 @@
 import tkinter as tk
 import random
 import pickle
+import threading
 from collections import Counter
+import tkinter.messagebox as messagebox
 from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
 from ai_simulation import Game2048AI
-from q_trainer_2048 import QTrainer
 from mainGameLogic import GameLogic
 
 class Game2048(GameLogic):
@@ -166,31 +167,7 @@ class Game2048(GameLogic):
         self.log_eval_file.close()
 
     def train_model(self):
-        trainer = QTrainer()
-        for ep in range(1000):
-            self.reset_game()
-            state = trainer.get_state_key(self.board)
-            total_reward = 0
-
-            while self.can_move():
-                action = trainer.choose_action(state)
-                moved = self.move_action(action)
-                reward = self.get_reward(moved)
-                next_state = trainer.get_state_key(self.board)
-                done = not self.can_move()
-
-                trainer.update_q(state, action, reward, next_state, done)
-                state = next_state
-                total_reward += reward
-
-                if done:
-                    break
-
-            trainer.decay_epsilon()
-            print(f"Episode {ep + 1}, Score: {total_reward}")
-
-        with open("q_model.pkl", "wb") as f:
-            pickle.dump(trainer.q_table, f)
+        threading.Thread(target=self.train_model_thread).start()
 
     def move_action(self, action):
         if action == "Up":
