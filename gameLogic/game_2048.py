@@ -1,192 +1,97 @@
-import tkinter as tk
+import numpy as np
 import random
-import pickle
-import threading
-from collections import Counter
-import tkinter.messagebox as messagebox
-from utilities import GRID_SIZE, BACKGROUND_COLOR, CELL_SIZE, TILE_COLORS, PADDING, FONT
-from ai_simulation import Game2048AI
-from mainGameLogic import GameLogic
 
-class Game2048(GameLogic):
-    def __init__(self, root):
-        self.root = root
-        self.root.title("2048 Game")
-        self.root.geometry(f"{GRID_SIZE * CELL_SIZE + 100}x{GRID_SIZE * CELL_SIZE + 100}")
+class Game2048:
+    def __init__(self, size=4):
+        self.size = size
+        self.board = np.zeros((size, size), dtype=int)
+        self.score = 0
+        self.reset()
 
-        frame = tk.Frame(self.root)
-        frame.pack()
-
-        self.canvas = tk.Canvas(frame, width=GRID_SIZE * CELL_SIZE, height=GRID_SIZE * CELL_SIZE, bg=BACKGROUND_COLOR)
-        self.canvas.pack()
-
-        tk.Button(self.root, text="AI Move", command=self.auto_play).pack(pady=10)
-        tk.Button(self.root, text="Run 50 AI Games", command=self.start_auto_evaluate).pack(pady=10)
-        tk.Button(self.root, text="Train AI Model", command=self.train_model).pack(pady=10)
-
-        self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+    def reset(self):
+        self.board.fill(0)
+        self.score = 0
         self.add_random_tile()
         self.add_random_tile()
-        self.draw_board()
-
-        self.root.bind("<Key>", self.key_handler)
-
-        self.auto_runs = 0
-        self.max_auto_runs = 50
-        self.auto_scores = []
-        self.auto_max_tiles = []
-
-    def draw_board(self):
-        self.canvas.delete("all")
-        for i in range(GRID_SIZE):
-            for j in range(GRID_SIZE):
-                value = self.board[i][j]
-                color = TILE_COLORS.get(value, "#3c3a32")
-                x0 = j * CELL_SIZE + PADDING
-                y0 = i * CELL_SIZE + PADDING
-                x1 = x0 + CELL_SIZE - 2 * PADDING
-                y1 = y0 + CELL_SIZE - 2 * PADDING
-                self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
-                if value != 0:
-                    self.canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2,
-                                            text=str(value), font=FONT, fill="#776e65")
+        return self.board.copy()
 
     def add_random_tile(self):
-        empty = [(i, j) for i in range(GRID_SIZE) for j in range(GRID_SIZE) if self.board[i][j] == 0]
-        if empty:
-            i, j = random.choice(empty)
-            self.board[i][j] = 2 if random.random() < 0.9 else 4
-
-    def key_handler(self, event):
-        key = event.keysym
-        moved = False
-
-        if key == "Up":
-            moved = self.move_vertical(self.board, up=True)
-        elif key == "Down":
-            moved = self.move_vertical(self.board, up=False)
-        elif key == "Left":
-            moved = self.move_horizontal(self.board, left=True)
-        elif key == "Right":
-            moved = self.move_horizontal(self.board, left=False)
-
-        if moved:
-            self.add_random_tile()
-            self.draw_board()
-            if not self.can_move():
-                self.show_game_over()
+        empty_cells = list(zip(*np.where(self.board == 0)))
+        if empty_cells:
+            row, col = random.choice(empty_cells)
+            self.board[row, col] = 4 if random.random() < 0.1 else 2
 
     def can_move(self):
-        for i in range(GRID_SIZE):
-            for j in range(GRID_SIZE):
-                if self.board[i][j] == 0:
+        if np.any(self.board == 0):
+            return True
+        for row in range(self.size):
+            for col in range(self.size - 1):
+                if self.board[row, col] == self.board[row, col + 1]:
                     return True
-                if j < GRID_SIZE - 1 and self.board[i][j] == self.board[i][j + 1]:
-                    return True
-                if i < GRID_SIZE - 1 and self.board[i][j] == self.board[i + 1][j]:
+        for col in range(self.size):
+            for row in range(self.size - 1):
+                if self.board[row, col] == self.board[row + 1, col]:
                     return True
         return False
 
-    def get_best_move(self):
-        directions = ['Up', 'Down', 'Left', 'Right']
-        best_score = -float('inf')
-        best_direction = None
-        for direction in directions:
-            temp_game = Game2048AI(self.board)
-            moved = temp_game.move(direction)
-            if moved:
-                score = temp_game.heuristic()
-                if score > best_score:
-                    best_score = score
-                    best_direction = direction
-        return best_direction
-
-    def auto_play(self):
-        direction = self.get_best_move()
-        if direction:
-            if direction == "Up":
-                self.move_vertical(self.board, up=True)
-            elif direction == "Down":
-                self.move_vertical(self.board, up=False)
-            elif direction == "Left":
-                self.move_horizontal(self.board, left=True)
-            elif direction == "Right":
-                self.move_horizontal(self.board, left=False)
+    def move(self, direction):
+        original_board = self.board.copy()
+        if direction == 'Up':
+            self.board = self._move_up(self.board)
+        elif direction == 'Down':
+            self.board = self._move_down(self.board)
+        elif direction == 'Left':
+            self.board = self._move_left(self.board)
+        elif direction == 'Right':
+            self.board = self._move_right(self.board)
+        else:
+            return False
+        changed = not np.array_equal(original_board, self.board)
+        if changed:
             self.add_random_tile()
-            self.draw_board()
-            if self.can_move():
-                self.root.after(300, self.auto_play)
-            else:
-                self.show_game_over()
+        return changed
 
-    def show_game_over(self):
-        self.canvas.create_text(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2,
-                                text="Game Over!", font=("Verdana", 32, "bold"), fill="red")
+    def _move_left(self, board):
+        new_board = np.zeros_like(board)
+        score_gained = 0
+        for i in range(self.size):
+            filtered = board[i][board[i] != 0]
+            merged = []
+            j = 0
+            while j < len(filtered):
+                if j + 1 < len(filtered) and filtered[j] == filtered[j + 1]:
+                    merged.append(filtered[j] * 2)
+                    score_gained += filtered[j] * 2
+                    j += 2
+                else:
+                    merged.append(filtered[j])
+                    j += 1
+            merged += [0] * (self.size - len(merged))
+            new_board[i] = merged
+        self.score += score_gained
+        return new_board
 
-    def reset_game(self):
-        self.board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
-        self.add_random_tile()
-        self.add_random_tile()
-        self.draw_board()
+    def _move_right(self, board):
+        reversed_board = np.flip(board, axis=1)
+        moved = self._move_left(reversed_board)
+        return np.flip(moved, axis=1)
 
-    def start_auto_evaluate(self):
-        self.auto_runs = 0
-        self.auto_scores = []
-        self.auto_max_tiles = []
-        self.log_eval_file = open("evaluation_results_log.txt", "w")
-        self.run_single_game()
+    def _move_up(self, board):
+        transposed = board.T
+        moved = self._move_left(transposed)
+        return moved.T
 
-    def run_single_game(self):
-        if self.auto_runs >= self.max_auto_runs:
-            self.show_auto_results()
-            return
-        self.reset_game()
-        self.root.after(500, self.auto_play_once)
+    def _move_down(self, board):
+        transposed = board.T
+        reversed_transposed = np.flip(transposed, axis=1)
+        moved = self._move_left(reversed_transposed)
+        return np.flip(moved, axis=1).T
 
-    def auto_play_once(self):
-        if not self.can_move():
-            final_score = sum(map(sum, self.board))
-            max_tile = max(map(max, self.board))
-            self.auto_scores.append(final_score)
-            self.auto_max_tiles.append(max_tile)
-            self.log_eval_file.write(f"Game {self.auto_runs + 1} - Final Score: {final_score}, Max Tile: {max_tile}\n")
-            self.auto_runs += 1
-            self.root.after(300, self.run_single_game)
-            return
-        self.auto_play()
+    def is_game_over(self):
+        return not self.can_move()
 
-    def show_auto_results(self):
-        avg_score = sum(self.auto_scores) / len(self.auto_scores)
-        max_tile_counts = Counter(self.auto_max_tiles)
-        result_text = f"Average Score: {avg_score:.2f}\n"
-        for tile in sorted(max_tile_counts):
-            percent = 100 * max_tile_counts[tile] / self.max_auto_runs
-            result_text += f"Reached {tile}: {percent:.2f}% of the time\n"
-        tk.Label(tk.Toplevel(self.root), text=result_text, font=("Verdana", 14), justify="left").pack(padx=20, pady=20)
-        self.log_eval_file.write("\nSummary:\n" + result_text)
-        self.log_eval_file.close()
+    def get_score(self):
+        return self.score
 
-    def train_model(self):
-        threading.Thread(target=self.train_model_thread).start()
-
-    def move_action(self, action):
-        if action == "Up":
-            return self.move_vertical(self.board, up=True)
-        elif action == "Down":
-            return self.move_vertical(self.board, up=False)
-        elif action == "Left":
-            return self.move_horizontal(self.board, left=True)
-        elif action == "Right":
-            return self.move_horizontal(self.board, left=False)
-        return False
-
-    def get_reward(self, moved):
-        if not moved:
-            return -1
-        return sum(map(sum, self.board))
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    game = Game2048(root)
-    root.mainloop()
+    def get_board(self):
+        return self.board.copy()
